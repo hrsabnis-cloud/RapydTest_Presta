@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: prestashop_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: prestashop_db
+      MYSQL_USER: prestashop_user
+      MYSQL_PASSWORD: prestashop_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  prestashop:
+    image: prestashop/prestashop:8-apache
+    container_name: prestashop_app
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      DB_SERVER: mariadb
+      DB_PORT: 3306
+      DB_NAME: prestashop_db
+      DB_USER: prestashop_user
+      DB_PASSWD: prestashop_pass
+      PS_DEV_MODE: "true"
+      PS_INSTALL_AUTO: "1"
+      PS_DOMAIN: localhost:8080
+      PS_FOLDER_ADMIN: admin_test
+      PS_FOLDER_INSTALL: install
+      ADMIN_MAIL: admin@example.com
+      ADMIN_PASSWD: Admin1234!
+      PS_COUNTRY: US
+      PS_LANGUAGE: en
+      PS_DEMO_MODE: "1"
+    volumes:
+      - prestashop_data:/var/www/html
+      - ./modules:/var/www/html/modules/custom
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: prestashop_phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mariadb
+      PMA_USER: prestashop_user
+      PMA_PASSWORD: prestashop_pass
+
+volumes:
+  db_data:
+  prestashop_data:
